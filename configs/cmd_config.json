@@ -1,0 +1,8 @@
+{
+  "help":{"active":true, "message":""},
+  "status":{"active":true, "message":""},
+  "join":{"active":"error", "message":"Investigating problems with voice record"},
+  "ada":{"active":false, "message":"Voicemodel is not finished yet (might be broken)"},
+  "leave":{"active":true, "message":""},
+  "ai":{"active":true, "message":""}
+}
