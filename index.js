@@ -138,17 +138,15 @@ client.on('interactionCreate', async interaction => {
       const filePath = `recordings/${Date.now()}.pcm`;
 
       audioStream.pipe(decoder).pipe(fs.createWriteStream(filePath)).on('finish', async () => {
-        // PCM → WAV (Whisper braucht WAV!)
         const wavFile = filePath.replace('.pcm', '.wav');
         await pcmToWav(filePath, wavFile);
-
-        // Whisper
+        
         let text = await transcribeWhisper(wavFile);
         text = text.replace(/\[.*?\]|\*.*?\*/g, '').trim();
         if (!text) {
           fs.unlinkSync(filePath);
           fs.unlinkSync(wavFile);
-          return; // nichts weiter tun, wenn nur Musik/Geräusche
+          return;
         }
 
 
@@ -183,7 +181,6 @@ client.on('interactionCreate', async interaction => {
           await askOllamaStream(prompt, async (token) => {
             buffer += token;
 
-            // Sprich bei Satzende oder wenn es zu lang wird
             if (
               /[.!?]\s*$/.test(buffer) &&
               buffer.length > 20
@@ -200,8 +197,7 @@ client.on('interactionCreate', async interaction => {
               }
             }
           });
-
-          // Falls am Ende noch Text übrig ist
+          
           if (buffer.trim().length > 0) {
             const wav = await speak(buffer.trim());
             audioQueue.push(wav);
@@ -234,9 +230,9 @@ client.on('interactionCreate', async interaction => {
       status = member.presence.status;
       const activities = member.presence.activities;
       activities.forEach(activity => {
-        atype = (typeof activity.type === 'number') ? '' : activity.type;  // z.B. "PLAYING", "LISTENING", "STREAMING", "WATCHING"
-        aname = activity.name;  // Name der App oder des Spiels
-        ainfo = activity.details; // z.B. Songname bei Spotify
+        atype = (typeof activity.type === 'number') ? '' : activity.type;  //e.g. "PLAYING", "LISTENING", "STREAMING", "WATCHING"
+        aname = activity.name;  // name of application
+        ainfo = activity.details; //e.g. songname if spotify
         astat = activity.state;
       });
     } 
@@ -327,28 +323,22 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-// Automatisch verlassen, wenn der Bot alleine ist
 client.on('voiceStateUpdate', (oldState, newState) => {
-  // Hol dir die Verbindung für diesen Server
   const connection = getVoiceConnection(oldState.guild.id);
   
   if (!connection) return;
 
-  // Hol dir den Channel, in dem der Bot gerade ist
   const botChannelId = connection.joinConfig.channelId;
   const channel = oldState.guild.channels.cache.get(botChannelId);
 
-  // Wenn der Channel existiert und nur noch der Bot (1 Mitglied) drin ist
   if (channel && channel.members.size === 1) {
     
-    // Optional: Eine kurze Verzögerung von 30 Sekunden, falls jemand kurz den Channel wechselt
     setTimeout(() => {
-        // Erneuter Check, ob nach 30 Sek immer noch keiner da ist
         const retryChannel = oldState.guild.channels.cache.get(botChannelId);
         if (retryChannel && retryChannel.members.size === 1) {
             connection.destroy();
         }
-    }, 30000); // 30000 ms = 30 Sekunden
+    }, 30000); // 30000 ms = 30 seconds
   }
 });
 
@@ -424,13 +414,12 @@ async function playSong(task) {
   return new Promise(async (resolve, reject) => {
     try {
       const outFile = path.join(__dirname, 'reply', `song-${Date.now()}`);
-      // Wir geben keinen Extension an, da yt-dlp .wav anhängt
       const finalPath = outFile + ".wav";
 
       // yt-dlp Parameter:
-      // "ytsearch1:" nimmt das erste Suchergebnis
-      // -x extrahiert Audio
-      // --audio-format wav konvertiert direkt
+      // "ytsearch1:"takes first search
+      // -x extract audio
+      // --audio-format wav konverts to .wav
       const ytDlp = spawn('yt-dlp', [
         `ytsearch1:${task}`,
         '-x',
@@ -639,10 +628,8 @@ function adaPitchFile(wavFile) {
   const ada_config = JSON.parse(fs.readFileSync('./configs/ada_config.json', 'utf8'));
   return new Promise((resolve, reject) => {
     const tmpFile = wavFile.replace(".wav", "_tmp.wav");
-    // Die Effekte aus dem JSON-Array zu einem einzigen String zusammenfügen
     const effectsString = ada_config.soxEffects.join(' ');
     
-    // Der vollständige SoX-Befehl
     const command = `sox "${wavFile}" "${tmpFile}" ${effectsString}`;
 
     exec(command, (err, stdout, stderr) => {
@@ -651,7 +638,6 @@ function adaPitchFile(wavFile) {
         return reject(err);
       }
 
-      // Die temporäre Datei zur endgültigen Datei umbenennen
       exec(`mv "${tmpFile}" "${wavFile}"`, (mvErr) =>
         mvErr ? reject(mvErr) : resolve()
       );
@@ -659,7 +645,7 @@ function adaPitchFile(wavFile) {
   });
 }
 
-// 🔹 Audio abspielen
+// 🔹 play Audio
 function playAudio(connection, file, volume) {
   const player = createAudioPlayer();
   const resource = createAudioResource(file, {inlineVolume: true, inputType:StreamType.Arbitrary, behaviors: {maxMissedFrames: 50}});
@@ -691,4 +677,5 @@ function cleanupAudio(connection) {
   if (connection.activePlayer) {
     connection.activePlayer.stop();
   }
+
 }
